@@ -1,0 +1,921 @@
+# Точное решение (конечное число членов ряда) для нелокальной теплопроводности на сетке и краевые условия
+# [Скрыть]Функции
+> restart:
+> 
+> with(plots):
+> #равномерная сетка для некоторого VALUE
+> SetkaRavnomer:=proc(leftValue, rightValue, nValue)
+> 	local i, shagValue, Value:
+> 	#построение сетки по VALUE
+> 	shagValue:=evalf((rightValue-leftValue)/nValue):
+> 	Value[1]:=leftValue:
+> 	for i from 2 to nValue do 
+> 		Value[i] :=Value[i-1]+shagValue:
+> 	end do:
+> 	Value[nValue+1]:=rightValue;
+> 	[seq(Value[k], k=1..nValue+1)]
+> end proc:
+> 
+> ExactMeshSolution:=proc(T, l, L, a2, b2, c2, c_x21, c_x22, Nx, Nt)
+> 	local odeXdrob, solXdrob, solTdrob, generalsoldrob, show, subsolution, SetkaX:
+> 	local SetkaT, initialData, q1, q2, leftBound, rightBound, q3, q4, j, i, NaSetkeFractDerivSol:
+> 	#Точное решение для уравнения с дробными производными
+> 	odeXdrob  := diff(A2*diff(m2(x), x),x)/m2(x) = C2:
+> 	solXdrob := dsolve(odeXdrob, m2(x)):
+> 	solTdrob := n2(t)=Sum(t^k/GAMMA(b2*(k+1)), k=0..infinity):
+> 	generalsoldrob := subs(A2=a2, C2=c2, _C1=c_x21, _C2=c_x22, evalf(subs(solXdrob, solTdrob, n2(t)*m2(x)))):
+> 	printf("Частное точное решение для уравнения с дробными производными (метод разделения переменных)");
+> 	show:=p2=solXdrob;
+> 	print(show):
+> 	subsolution := subs(Sum=add, infinity=12,  generalsoldrob):
+> 	printf("Усеченный ряд точного решения для уравнения с дробными производными");
+> 	subsolution := evalf(subsolution):
+> 	print(subsolution):
+> 
+> 	#Построение точного решения на сетке
+> 	SetkaX := SetkaRavnomer(l, L, Nx):
+> 	SetkaT := SetkaRavnomer(0, T, Nt):
+> 
+> 	for j from 1 to Nt+1 do:
+> 		for i from 1 to Nx+1 do:
+> 			NaSetkeFractDerivSol[j, i] := evalf(subs(t=SetkaT[j], x=SetkaX[i], subsolution)):
+> 		od:
+> 	od:
+> 	[NaSetkeFractDerivSol, subsolution]:
+> end proc:
+
+# Расчет для частного случая нелокальности
+> #Параметры задачи
+> T := 1: #Конечное время, ряд сходится при <1
+> l := 0.01: #Левая граница
+> L := 1: #Правая граница
+> #Параметры сеток
+> Nx := 1000: #Число узлов-1 сетки по пространству
+> Nt := 10: #Число узлов-1 сетки по времени
+> SetkaX:= SetkaRavnomer(l, L, Nx):
+> SetkaT:=SetkaRavnomer(0, T, Nt):
+> 
+> #Параметр нелокальности и проницаемость
+> a2 := 0.5: #Коэффициент проницаемости
+> b2 := 0.5: #Показатель дробной производной
+> #Константы интегрирования
+> c2 := 5: #Константа интегрирования 
+> c_x21  := -0.01: #Константа интегрирования
+> c_x22 := 10: #Константа интегрирования 
+> #чтобы как на презах надо чтобы с2 был на порядок больше а2
+> 
+> ForHelp := ExactMeshSolution(T, l, L, a2, b2, c2, c_x21, c_x22, Nx, Nt):
+> NaSetkeFractDerivSol := evalf(ForHelp[1]):
+> PartSolution := 'PartSolution':
+> PartSolution := ForHelp[2]:
+> PartSolution;
+> 
+> #Визуализация краевых условий
+> #Начальное и конечное
+> InitialData := subs(t=0, PartSolution):
+> #Левая и правая граница
+> LeftBound := subs(x=l, PartSolution):
+> RightBound := subs(x=L, PartSolution):
+> 
+> printf("Граничные условия");
+> plot([LeftBound, RightBound], t=0..T, labels=["t","p(t, x)"], labelfont = ["HELVETICA", 15],
+> legend=["Левая граница", "Правая граница"], legendstyle = [font = ["HELVETICA", 15], location = right], thickness = 3, axesfont=["HELVETICA",10]);
+> plot([InitialData, subs(t=T, PartSolution)], x=l..L, labels=["x","p(t, x)"], labelfont = ["HELVETICA", 15],
+> legend=["Начальное условие", "Конечное положение"], legendstyle = [font = ["HELVETICA", 15], location = right], thickness = 3, axesfont=["HELVETICA",10]);
+> 
+> 
+
+Частное точное решение для уравнения с дробными производными (метод разделения переменных)
+         /               /  (1/2)  \          /    (1/2)  \\
+         |               |C2      x|          |  C2      x||
+    p2 = |m2(x) = _C1 exp|---------| + _C2 exp|- ---------||
+         |               |   (1/2) |          |     (1/2) ||
+         \               \ A2      /          \   A2      //
+Усеченный ряд точного решения для уравнения с дробными производными
+    /         k                     \                          
+    |        t                      |                          
+ add|------------------, k = 0 .. 12| (-0.01 exp(3.162277659 x)
+    \GAMMA(0.5 k + 0.5)             /                          
+
+    + 10. exp(-3.162277659 x))
+/                                   2       3                 4
+\0.5641895835 + 1. t + 1.128379167 t  + 1. t  + 0.7522527782 t 
+
+                   5                 6                 7
+   + 0.5000000000 t  + 0.3009011113 t  + 0.1666666667 t 
+
+                    8                  9                  10
+   + 0.08597174604 t  + 0.04166666667 t  + 0.01910483246 t  
+
+                     11                   12\  
+   + 0.008333333333 t   + 0.003473605902 t  / (
+-0.01 exp(3.162277659 x) + 10. exp(-3.162277659 x))
+Граничные условия
+
+
+> 
+
+;
+> 
+;
+# Функционал разности решений на сетке для частного случая
+# [Скрыть]Функции
+> #--------------------------------------------------------------------
+> #------------------------решатель со со степенными законами----------
+> #--------------------------------------------------------------------
+> solverOsred:=proc(stepPerm, coefPerm, stepPoros, coefPoros, l, L, pl0, pL0, Kosh, SetkaX, SetkaT)
+> 	local Kapprox, Mapprox, PDE, IBC, pds, g;
+> 	local solut, NSetkaX, NSetkaT, shagX, shagT, i, j, U, Ux, kUx, Ut;
+> 	#option remember:
+> 		
+> 	#уравнение, граничные условия, решение встроенным решателем
+> 	Kapprox:=(x)^stepPerm*coefPerm: 
+> 	Mapprox:=(x)^stepPoros*coefPoros:
+> 	PDE := Mapprox*diff(u(x, t), t) = diff(Kapprox*diff(u(x, t),x), x);
+> 	IBC := {u(l, t) = pl0, u(x, 0) = Kosh, u(L, t) = pL0}:	
+> 	pds := pdsolve(PDE, IBC, numeric, time=t, range=l..L, compile=true):
+> 	pds:-value(output = listprocedure); 
+> 	solut:=subs(%[3], u(x, t)):		
+> 	#выгрузка в массивы
+> 	NSetkaX:=numelems(SetkaX):
+> 	NSetkaT:=numelems(SetkaT):
+> 	shagX:=SetkaX[2]-SetkaX[1]:
+> 	shagT:=SetkaT[2]-SetkaT[1]:
+> 	for i from 1 to NSetkaX do
+> 		for j from 1 to NSetkaT do
+> 			U[i, j]:=solut(SetkaX[i], SetkaT[j]): 
+> 		od:
+> 	od:
+> 	#subs(x=SetkaX[i], Kapprox)*
+> 	for i from 1 to NSetkaX-1 do	
+> 		for j from 1 to NSetkaT do
+> 			Ux[i, j]:=(solut(SetkaX[i+1], SetkaT[j])-solut(SetkaX[i], SetkaT[j]))/shagX:
+> 		od:
+> 	od:
+> if 0=1 then
+> 	#subs(x=SetkaX[i+1], Kapprox)*
+> 	for i from 1 to NSetkaX do
+> 		for j from 1 to NSetkaT-1 do
+> 			Ut[i, j]:=(solut(SetkaX[i], SetkaT[j+1])-solut(SetkaX[i], SetkaT[j]))/shagT: 
+> 		od:
+> 	od:
+> fi:
+> 	
+> 	 [U, Ux, Ut]
+> end proc:
+> 
+> 
+> #нахождение значения функционала в котором достигается минимум
+> minimizeFun:=proc(Fun)
+> 	local i, j ,NCoef, NStep, dddd, NomerMin:
+> 
+> 	NStep:=numelems(Fun):	
+> 	NCoef:=numelems(Fun[1]): 	
+> 	dddd:=Matrix([seq([seq(Fun[i,j,3], i = 1 .. NStep)], j = 1 .. NCoef)]); 
+> 	NomerMin:=min[index](dddd); 
+> 
+> 	[Fun[NomerMin[2],NomerMin[1],1],Fun[NomerMin[2],NomerMin[1],2],Fun[NomerMin[2],NomerMin[1],3]]:
+> 	evalf(%);
+> end proc:
+> 
+> 
+> #нахождение значения функционала в котором достигается максимум
+> maximizeFun:=proc(Fun)
+> 	local i, j ,NCoef, NStep, dddd, NomerMax:
+> 
+> 	NStep:=numelems(Fun):	
+> 	NCoef:=numelems(Fun[1]): 	
+> 	dddd:=Matrix([seq([seq(Fun[i,j,3], i = 1 .. NStep)], j = 1 .. NCoef)]); 
+> 	NomerMax:=max[index](dddd); 
+> 
+> 	[Fun[NomerMax[2],NomerMax[1],1],Fun[NomerMax[2],NomerMax[1],2],Fun[NomerMax[2],NomerMax[1],3]]:
+> 	evalf(%);
+> end proc:
+> 
+> 
+> #рассчет функционала l2
+> FunPieceMinusStep:=proc(Piece, LeftStep, RightStep, NStep, LeftCoef, RightCoef, NCoef, SetkaX)
+> 	local i,j:
+> 	local Coef, Step, NSetkaX, RaznicaStupStepen, RaznicaStupStepenDiskret, Gunkzional:
+> 
+> 	Coef:=SetkaRavnomer(LeftCoef, RightCoef, NCoef);
+> 	Step:=SetkaRavnomer(LeftStep, RightStep, NStep);
+> 	NSetkaX:=numelems(SetkaX):
+> 	RaznicaStupStepen:=(Piece-BB*x^AA)^2: 
+> 	RaznicaStupStepenDiskret:=add(eval(RaznicaStupStepen, x = SetkaX[hh])*(SetkaX[hh]-SetkaX[hh-1]), hh=2..NSetkaX): 		
+> 	for i from 1 to NStep+1 do		
+> 		for j from 1 to NCoef+1 do
+> 			Gunkzional[i,j]:=subs(BB=Coef[j], AA=Step[i], RaznicaStupStepenDiskret): 
+> 		od:
+> 	od:
+> 
+> 	seq([seq([Step[i], Coef[j], Gunkzional[i,j]], i = 1 .. NStep+1)], j = 1 .. NCoef+1)
+> end proc:
+# Расчет функционала для частного случая проницаемости
+> weight1 := 1:
+> weight2 := 1:
+> weight3 := 1:
+> 
+> #-------------
+> #Положение времени для локального функционала
+> NTwant := 10:
+> NTstart := 1:
+> NTend := 10:
+> #-------------
+> 
+> #Сетки для коэффициентов
+> Na := 20:
+> Nb := 20:
+> aEnd := 1:
+> bEnd := 1:
+> aStart := 0.01: #Коэффициент
+> bStart := 0: #Степень
+> 
+> SetkaA := SetkaRavnomer(aStart, aEnd, Na):
+> SetkaB := SetkaRavnomer(bStart, bEnd, Nb):
+> 
+> #процедура расчета функционала
+> shagX:=SetkaX[2]-SetkaX[1]:
+> shagT:=SetkaT[2]-SetkaT[1]:
+> for j from 1 to Na do
+> 	for k from 1 to Nb do
+> 		NaSetkePowerNumericSol := solverOsred(SetkaB[k], SetkaA[j], 0, 1, l, L, LeftBound, RightBound, InitialData, SetkaX, SetkaT):		
+> 		for vv from 1 to Nt+1 do
+> 		for hh from 1 to Nx do
+> 			f[vv, hh] := weight1*(NaSetkePowerNumericSol[1][hh, vv]-NaSetkeFractDerivSol[vv, hh])^2/max(NaSetkePowerNumericSol[1][hh, vv], NaSetkeFractDerivSol[vv, hh])^2+
+> 				 weight2*(SetkaA[j]*SetkaX[hh]^SetkaB[j]*NaSetkePowerNumericSol[2][hh, vv]-a2*(NaSetkeFractDerivSol[vv, hh+1]-NaSetkeFractDerivSol[vv, hh])/shagX)^2/max(abs(SetkaA[j]*SetkaX[hh]^SetkaB[j]*NaSetkePowerNumericSol[2][hh, vv]), a2*abs(NaSetkeFractDerivSol[vv, hh+1]-NaSetkeFractDerivSol[vv, hh])/shagX)^2:
+> 
+> #старый функционал выше
+> 		od:	
+> 		f[vv, Nx+1] := weight1*(NaSetkePowerNumericSol[1][Nx+1, vv]-NaSetkeFractDerivSol[vv, Nx+1])^2+weight3*(a2-SetkaA[j]*SetkaX[Nx+1]^SetkaB[j])^2:
+> 
+> 		od:	
+> 		
+> 		FunRaznica[j, k] := shagT*shagX*add(add(f[vv, hh], hh=2..Nx+1), vv=2..Nt+1):
+> 		NaSetkePowerNumericSol := 0:
+> 		f := 0:
+> 		printf("a=%f, b=%f, Funkcional=%f \n", SetkaA[j], SetkaB[k], FunRaznica[j, k]);
+> 	od:
+> 	printf("=========================== \n");
+> od:
+> 
+> #Визуализация
+> For3dPlot := [seq([seq([SetkaA[jj], SetkaB[kk], FunRaznica[jj, kk]], jj=1..Na)], kk=1..Nb)]:
+> MinimumAandB := minimizeFun(For3dPlot):
+> printf("Функционал достигает минимума в точке"):
+> print(MinimumAandB):
+> surfdata(For3dPlot, labels = [a, b, 'F'], labelfont = ["Verdana", bold, 14], shading=none, axes=boxed);
+> 
+> #end proc:
+
+a=0.010000, b=0.000000, Funkcional=1.312960 
+a=0.010000, b=0.050000, Funkcional=1.317668 
+a=0.010000, b=0.100000, Funkcional=1.322036 
+a=0.010000, b=0.150000, Funkcional=1.326072 
+a=0.010000, b=0.200000, Funkcional=1.329785 
+a=0.010000, b=0.250000, Funkcional=1.333187 
+a=0.010000, b=0.300000, Funkcional=1.336293 
+a=0.010000, b=0.350000, Funkcional=1.339117 
+a=0.010000, b=0.400000, Funkcional=1.341676 
+a=0.010000, b=0.450000, Funkcional=1.343986 
+a=0.010000, b=0.500000, Funkcional=1.346066 
+a=0.010000, b=0.550000, Funkcional=1.347933 
+a=0.010000, b=0.600000, Funkcional=1.349604 
+a=0.010000, b=0.650000, Funkcional=1.351097 
+a=0.010000, b=0.700000, Funkcional=1.352428 
+a=0.010000, b=0.750000, Funkcional=1.353613 
+a=0.010000, b=0.800000, Funkcional=1.354668 
+a=0.010000, b=0.850000, Funkcional=1.355606 
+a=0.010000, b=0.900000, Funkcional=1.356441 
+a=0.010000, b=0.950000, Funkcional=1.357184 
+=========================== 
+a=0.059500, b=0.000000, Funkcional=1.031710 
+a=0.059500, b=0.050000, Funkcional=1.050152 
+a=0.059500, b=0.100000, Funkcional=1.067893 
+a=0.059500, b=0.150000, Funkcional=1.084847 
+a=0.059500, b=0.200000, Funkcional=1.100950 
+a=0.059500, b=0.250000, Funkcional=1.116157 
+a=0.059500, b=0.300000, Funkcional=1.130442 
+a=0.059500, b=0.350000, Funkcional=1.143794 
+a=0.059500, b=0.400000, Funkcional=1.156217 
+a=0.059500, b=0.450000, Funkcional=1.167727 
+a=0.059500, b=0.500000, Funkcional=1.178349 
+a=0.059500, b=0.550000, Funkcional=1.188115 
+a=0.059500, b=0.600000, Funkcional=1.197065 
+a=0.059500, b=0.650000, Funkcional=1.205241 
+a=0.059500, b=0.700000, Funkcional=1.212690 
+a=0.059500, b=0.750000, Funkcional=1.219456 
+a=0.059500, b=0.800000, Funkcional=1.225590 
+a=0.059500, b=0.850000, Funkcional=1.231136 
+a=0.059500, b=0.900000, Funkcional=1.236142 
+a=0.059500, b=0.950000, Funkcional=1.240651 
+=========================== 
+a=0.109000, b=0.000000, Funkcional=0.789182 
+a=0.109000, b=0.050000, Funkcional=0.816594 
+a=0.109000, b=0.100000, Funkcional=0.844047 
+a=0.109000, b=0.150000, Funkcional=0.871203 
+a=0.109000, b=0.200000, Funkcional=0.897769 
+a=0.109000, b=0.250000, Funkcional=0.923500 
+a=0.109000, b=0.300000, Funkcional=0.948201 
+a=0.109000, b=0.350000, Funkcional=0.971719 
+a=0.109000, b=0.400000, Funkcional=0.993945 
+a=0.109000, b=0.450000, Funkcional=1.014809 
+a=0.109000, b=0.500000, Funkcional=1.034274 
+a=0.109000, b=0.550000, Funkcional=1.052336 
+a=0.109000, b=0.600000, Funkcional=1.069011 
+a=0.109000, b=0.650000, Funkcional=1.084340 
+a=0.109000, b=0.700000, Funkcional=1.098374 
+a=0.109000, b=0.750000, Funkcional=1.111179 
+a=0.109000, b=0.800000, Funkcional=1.122826 
+a=0.109000, b=0.850000, Funkcional=1.133391 
+a=0.109000, b=0.900000, Funkcional=1.142952 
+a=0.109000, b=0.950000, Funkcional=1.151584 
+=========================== 
+a=0.158500, b=0.000000, Funkcional=0.587196 
+a=0.158500, b=0.050000, Funkcional=0.616742 
+a=0.158500, b=0.100000, Funkcional=0.648144 
+a=0.158500, b=0.150000, Funkcional=0.680756 
+a=0.158500, b=0.200000, Funkcional=0.713980 
+a=0.158500, b=0.250000, Funkcional=0.747282 
+a=0.158500, b=0.300000, Funkcional=0.780192 
+a=0.158500, b=0.350000, Funkcional=0.812312 
+a=0.158500, b=0.400000, Funkcional=0.843312 
+a=0.158500, b=0.450000, Funkcional=0.872935 
+a=0.158500, b=0.500000, Funkcional=0.900987 
+a=0.158500, b=0.550000, Funkcional=0.927338 
+a=0.158500, b=0.600000, Funkcional=0.951912 
+a=0.158500, b=0.650000, Funkcional=0.974679 
+a=0.158500, b=0.700000, Funkcional=0.995650 
+a=0.158500, b=0.750000, Funkcional=1.014869 
+a=0.158500, b=0.800000, Funkcional=1.032403 
+a=0.158500, b=0.850000, Funkcional=1.048339 
+a=0.158500, b=0.900000, Funkcional=1.062772 
+a=0.158500, b=0.950000, Funkcional=1.075807 
+=========================== 
+a=0.208000, b=0.000000, Funkcional=0.431898 
+a=0.208000, b=0.050000, Funkcional=0.456887 
+a=0.208000, b=0.100000, Funkcional=0.486188 
+a=0.208000, b=0.150000, Funkcional=0.518901 
+a=0.208000, b=0.200000, Funkcional=0.554141 
+a=0.208000, b=0.250000, Funkcional=0.591072 
+a=0.208000, b=0.300000, Funkcional=0.628929 
+a=0.208000, b=0.350000, Funkcional=0.667020 
+a=0.208000, b=0.400000, Funkcional=0.704742 
+a=0.208000, b=0.450000, Funkcional=0.741581 
+a=0.208000, b=0.500000, Funkcional=0.777117 
+a=0.208000, b=0.550000, Funkcional=0.811021 
+a=0.208000, b=0.600000, Funkcional=0.843050 
+a=0.208000, b=0.650000, Funkcional=0.873042 
+a=0.208000, b=0.700000, Funkcional=0.900905 
+a=0.208000, b=0.750000, Funkcional=0.926608 
+a=0.208000, b=0.800000, Funkcional=0.950173 
+a=0.208000, b=0.850000, Funkcional=0.971658 
+a=0.208000, b=0.900000, Funkcional=0.991156 
+a=0.208000, b=0.950000, Funkcional=1.008777 
+=========================== 
+a=0.257500, b=0.000000, Funkcional=0.323539 
+a=0.257500, b=0.050000, Funkcional=0.339423 
+a=0.257500, b=0.100000, Funkcional=0.361381 
+a=0.257500, b=0.150000, Funkcional=0.389089 
+a=0.257500, b=0.200000, Funkcional=0.421670 
+a=0.257500, b=0.250000, Funkcional=0.458068 
+a=0.257500, b=0.300000, Funkcional=0.497237 
+a=0.257500, b=0.350000, Funkcional=0.538196 
+a=0.257500, b=0.400000, Funkcional=0.580047 
+a=0.257500, b=0.450000, Funkcional=0.621993 
+a=0.257500, b=0.500000, Funkcional=0.663346 
+a=0.257500, b=0.550000, Funkcional=0.703528 
+a=0.257500, b=0.600000, Funkcional=0.742079 
+a=0.257500, b=0.650000, Funkcional=0.778647 
+a=0.257500, b=0.700000, Funkcional=0.812983 
+a=0.257500, b=0.750000, Funkcional=0.844932 
+a=0.257500, b=0.800000, Funkcional=0.874420 
+a=0.257500, b=0.850000, Funkcional=0.901443 
+a=0.257500, b=0.900000, Funkcional=0.926051 
+a=0.257500, b=0.950000, Funkcional=0.948336 
+=========================== 
+a=0.307000, b=0.000000, Funkcional=0.257352 
+a=0.307000, b=0.050000, Funkcional=0.262679 
+a=0.307000, b=0.100000, Funkcional=0.274426 
+a=0.307000, b=0.150000, Funkcional=0.293150 
+a=0.307000, b=0.200000, Funkcional=0.318778 
+a=0.307000, b=0.250000, Funkcional=0.350545 
+a=0.307000, b=0.300000, Funkcional=0.387306 
+a=0.307000, b=0.350000, Funkcional=0.427838 
+a=0.307000, b=0.400000, Funkcional=0.470964 
+a=0.307000, b=0.450000, Funkcional=0.515595 
+a=0.307000, b=0.500000, Funkcional=0.560753 
+a=0.307000, b=0.550000, Funkcional=0.605588 
+a=0.307000, b=0.600000, Funkcional=0.649382 
+a=0.307000, b=0.650000, Funkcional=0.691553 
+a=0.307000, b=0.700000, Funkcional=0.731649 
+a=0.307000, b=0.750000, Funkcional=0.769348 
+a=0.307000, b=0.800000, Funkcional=0.804437 
+a=0.307000, b=0.850000, Funkcional=0.836806 
+a=0.307000, b=0.900000, Funkcional=0.866430 
+a=0.307000, b=0.950000, Funkcional=0.893352 
+=========================== 
+a=0.356500, b=0.000000, Funkcional=0.231122 
+a=0.356500, b=0.050000, Funkcional=0.224195 
+a=0.356500, b=0.100000, Funkcional=0.223955 
+a=0.356500, b=0.150000, Funkcional=0.231241 
+a=0.356500, b=0.200000, Funkcional=0.246612 
+a=0.356500, b=0.250000, Funkcional=0.270036 
+a=0.356500, b=0.300000, Funkcional=0.300749 
+a=0.356500, b=0.350000, Funkcional=0.337509 
+a=0.356500, b=0.400000, Funkcional=0.378928 
+a=0.356500, b=0.450000, Funkcional=0.423642 
+a=0.356500, b=0.500000, Funkcional=0.470386 
+a=0.356500, b=0.550000, Funkcional=0.518015 
+a=0.356500, b=0.600000, Funkcional=0.565534 
+a=0.356500, b=0.650000, Funkcional=0.612097 
+a=0.356500, b=0.700000, Funkcional=0.657019 
+a=0.356500, b=0.750000, Funkcional=0.699767 
+a=0.356500, b=0.800000, Funkcional=0.739953 
+a=0.356500, b=0.850000, Funkcional=0.777325 
+a=0.356500, b=0.900000, Funkcional=0.811745 
+a=0.356500, b=0.950000, Funkcional=0.843176 
+=========================== 
+a=0.406000, b=0.000000, Funkcional=0.237539 
+a=0.406000, b=0.050000, Funkcional=0.219920 
+a=0.406000, b=0.100000, Funkcional=0.207738 
+a=0.406000, b=0.150000, Funkcional=0.202403 
+a=0.406000, b=0.200000, Funkcional=0.205296 
+a=0.406000, b=0.250000, Funkcional=0.217365 
+a=0.406000, b=0.300000, Funkcional=0.238679 
+a=0.406000, b=0.350000, Funkcional=0.268379 
+a=0.406000, b=0.400000, Funkcional=0.305064 
+a=0.406000, b=0.450000, Funkcional=0.347165 
+a=0.406000, b=0.500000, Funkcional=0.393139 
+a=0.406000, b=0.550000, Funkcional=0.441550 
+a=0.406000, b=0.600000, Funkcional=0.491106 
+a=0.406000, b=0.650000, Funkcional=0.540680 
+a=0.406000, b=0.700000, Funkcional=0.589321 
+a=0.406000, b=0.750000, Funkcional=0.636256 
+a=0.406000, b=0.800000, Funkcional=0.680890 
+a=0.406000, b=0.850000, Funkcional=0.722791 
+a=0.406000, b=0.900000, Funkcional=0.761678 
+a=0.406000, b=0.950000, Funkcional=0.797402 
+=========================== 
+a=0.455500, b=0.000000, Funkcional=0.261901 
+a=0.455500, b=0.050000, Funkcional=0.237283 
+a=0.455500, b=0.100000, Funkcional=0.216545 
+a=0.455500, b=0.150000, Funkcional=0.201026 
+a=0.455500, b=0.200000, Funkcional=0.192293 
+a=0.455500, b=0.250000, Funkcional=0.192022 
+a=0.455500, b=0.300000, Funkcional=0.201557 
+a=0.455500, b=0.350000, Funkcional=0.221231 
+a=0.455500, b=0.400000, Funkcional=0.250211 
+a=0.455500, b=0.450000, Funkcional=0.286963 
+a=0.455500, b=0.500000, Funkcional=0.329736 
+a=0.455500, b=0.550000, Funkcional=0.376813 
+a=0.455500, b=0.600000, Funkcional=0.426601 
+a=0.455500, b=0.650000, Funkcional=0.477676 
+a=0.455500, b=0.700000, Funkcional=0.528800 
+a=0.455500, b=0.750000, Funkcional=0.578935 
+a=0.455500, b=0.800000, Funkcional=0.627246 
+a=0.455500, b=0.850000, Funkcional=0.673095 
+a=0.455500, b=0.900000, Funkcional=0.716023 
+a=0.455500, b=0.950000, Funkcional=0.755741 
+=========================== 
+a=0.505000, b=0.000000, Funkcional=0.294047 
+a=0.505000, b=0.050000, Funkcional=0.265190 
+a=0.505000, b=0.100000, Funkcional=0.238974 
+a=0.505000, b=0.150000, Funkcional=0.216545 
+a=0.505000, b=0.200000, Funkcional=0.199308 
+a=0.505000, b=0.250000, Funkcional=0.188924 
+a=0.505000, b=0.300000, Funkcional=0.187174 
+a=0.505000, b=0.350000, Funkcional=0.195552 
+a=0.505000, b=0.400000, Funkcional=0.214572 
+a=0.505000, b=0.450000, Funkcional=0.243474 
+a=0.505000, b=0.500000, Funkcional=0.280665 
+a=0.505000, b=0.550000, Funkcional=0.324266 
+a=0.505000, b=0.600000, Funkcional=0.372419 
+a=0.505000, b=0.650000, Funkcional=0.423400 
+a=0.505000, b=0.700000, Funkcional=0.475676 
+a=0.505000, b=0.750000, Funkcional=0.527924 
+a=0.505000, b=0.800000, Funkcional=0.579047 
+a=0.505000, b=0.850000, Funkcional=0.628169 
+a=0.505000, b=0.900000, Funkcional=0.674633 
+a=0.505000, b=0.950000, Funkcional=0.717975 
+=========================== 
+a=0.554500, b=0.000000, Funkcional=0.328611 
+a=0.554500, b=0.050000, Funkcional=0.297301 
+a=0.554500, b=0.100000, Funkcional=0.267711 
+a=0.554500, b=0.150000, Funkcional=0.240800 
+a=0.554500, b=0.200000, Funkcional=0.217774 
+a=0.554500, b=0.250000, Funkcional=0.200120 
+a=0.554500, b=0.300000, Funkcional=0.189570 
+a=0.554500, b=0.350000, Funkcional=0.187918 
+a=0.554500, b=0.400000, Funkcional=0.196602 
+a=0.554500, b=0.450000, Funkcional=0.216133 
+a=0.554500, b=0.500000, Funkcional=0.245787 
+a=0.554500, b=0.550000, Funkcional=0.283952 
+a=0.554500, b=0.600000, Funkcional=0.328670 
+a=0.554500, b=0.650000, Funkcional=0.377975 
+a=0.554500, b=0.700000, Funkcional=0.430049 
+a=0.554500, b=0.750000, Funkcional=0.483280 
+a=0.554500, b=0.800000, Funkcional=0.536290 
+a=0.554500, b=0.850000, Funkcional=0.587953 
+a=0.554500, b=0.900000, Funkcional=0.637381 
+a=0.554500, b=0.950000, Funkcional=0.683920 
+=========================== 
+a=0.604000, b=0.000000, Funkcional=0.362968 
+a=0.604000, b=0.050000, Funkcional=0.330331 
+a=0.604000, b=0.100000, Funkcional=0.298736 
+a=0.604000, b=0.150000, Funkcional=0.268985 
+a=0.604000, b=0.200000, Funkcional=0.242107 
+a=0.604000, b=0.250000, Funkcional=0.219396 
+a=0.604000, b=0.300000, Funkcional=0.202429 
+a=0.604000, b=0.350000, Funkcional=0.192979 
+a=0.604000, b=0.400000, Funkcional=0.192774 
+a=0.604000, b=0.450000, Funkcional=0.203061 
+a=0.604000, b=0.500000, Funkcional=0.224184 
+a=0.604000, b=0.550000, Funkcional=0.255399 
+a=0.604000, b=0.600000, Funkcional=0.295081 
+a=0.604000, b=0.650000, Funkcional=0.341220 
+a=0.604000, b=0.700000, Funkcional=0.391776 
+a=0.604000, b=0.750000, Funkcional=0.444867 
+a=0.604000, b=0.800000, Funkcional=0.498835 
+a=0.604000, b=0.850000, Funkcional=0.552283 
+a=0.604000, b=0.900000, Funkcional=0.604079 
+a=0.604000, b=0.950000, Funkcional=0.653357 
+=========================== 
+a=0.653500, b=0.000000, Funkcional=0.395906 
+a=0.653500, b=0.050000, Funkcional=0.362653 
+a=0.653500, b=0.100000, Funkcional=0.329938 
+a=0.653500, b=0.150000, Funkcional=0.298439 
+a=0.653500, b=0.200000, Funkcional=0.269036 
+a=0.653500, b=0.250000, Funkcional=0.242852 
+a=0.653500, b=0.300000, Funkcional=0.221290 
+a=0.653500, b=0.350000, Funkcional=0.206008 
+a=0.653500, b=0.400000, Funkcional=0.198771 
+a=0.653500, b=0.450000, Funkcional=0.201147 
+a=0.653500, b=0.500000, Funkcional=0.214080 
+a=0.653500, b=0.550000, Funkcional=0.237677 
+a=0.653500, b=0.600000, Funkcional=0.271130 
+a=0.653500, b=0.650000, Funkcional=0.312785 
+a=0.653500, b=0.700000, Funkcional=0.360584 
+a=0.653500, b=0.750000, Funkcional=0.412441 
+a=0.653500, b=0.800000, Funkcional=0.466438 
+a=0.653500, b=0.850000, Funkcional=0.520907 
+a=0.653500, b=0.900000, Funkcional=0.574464 
+a=0.653500, b=0.950000, Funkcional=0.626007 
+=========================== 
+a=0.703000, b=0.000000, Funkcional=0.426929 
+a=0.703000, b=0.050000, Funkcional=0.393506 
+a=0.703000, b=0.100000, Funkcional=0.360247 
+a=0.703000, b=0.150000, Funkcional=0.327729 
+a=0.703000, b=0.200000, Funkcional=0.296707 
+a=0.703000, b=0.250000, Funkcional=0.268161 
+a=0.703000, b=0.300000, Funkcional=0.243333 
+a=0.703000, b=0.350000, Funkcional=0.223739 
+a=0.703000, b=0.400000, Funkcional=0.211082 
+a=0.703000, b=0.450000, Funkcional=0.207045 
+a=0.703000, b=0.500000, Funkcional=0.212920 
+a=0.703000, b=0.550000, Funkcional=0.229283 
+a=0.703000, b=0.600000, Funkcional=0.256011 
+a=0.703000, b=0.650000, Funkcional=0.292204 
+a=0.703000, b=0.700000, Funkcional=0.336148 
+a=0.703000, b=0.750000, Funkcional=0.385734 
+a=0.703000, b=0.800000, Funkcional=0.438852 
+a=0.703000, b=0.850000, Funkcional=0.493579 
+a=0.703000, b=0.900000, Funkcional=0.548271 
+a=0.703000, b=0.950000, Funkcional=0.601586 
+=========================== 
+a=0.752500, b=0.000000, Funkcional=0.455897 
+a=0.752500, b=0.050000, Funkcional=0.422587 
+a=0.752500, b=0.100000, Funkcional=0.389159 
+a=0.752500, b=0.150000, Funkcional=0.356107 
+a=0.752500, b=0.200000, Funkcional=0.324088 
+a=0.752500, b=0.250000, Funkcional=0.293959 
+a=0.752500, b=0.300000, Funkcional=0.266823 
+a=0.752500, b=0.350000, Funkcional=0.244055 
+a=0.752500, b=0.400000, Funkcional=0.227259 
+a=0.752500, b=0.450000, Funkcional=0.218122 
+a=0.752500, b=0.500000, Funkcional=0.218131 
+a=0.752500, b=0.550000, Funkcional=0.228193 
+a=0.752500, b=0.600000, Funkcional=0.248530 
+a=0.752500, b=0.650000, Funkcional=0.278833 
+a=0.752500, b=0.700000, Funkcional=0.318084 
+a=0.752500, b=0.750000, Funkcional=0.364473 
+a=0.752500, b=0.800000, Funkcional=0.415842 
+a=0.752500, b=0.850000, Funkcional=0.470071 
+a=0.752500, b=0.900000, Funkcional=0.525273 
+a=0.752500, b=0.950000, Funkcional=0.579856 
+=========================== 
+a=0.802000, b=0.000000, Funkcional=0.482843 
+a=0.802000, b=0.050000, Funkcional=0.449825 
+a=0.802000, b=0.100000, Funkcional=0.416472 
+a=0.802000, b=0.150000, Funkcional=0.383215 
+a=0.802000, b=0.200000, Funkcional=0.350626 
+a=0.802000, b=0.250000, Funkcional=0.319464 
+a=0.802000, b=0.300000, Funkcional=0.290712 
+a=0.802000, b=0.350000, Funkcional=0.265614 
+a=0.802000, b=0.400000, Funkcional=0.245664 
+a=0.802000, b=0.450000, Funkcional=0.232503 
+a=0.802000, b=0.500000, Funkcional=0.227705 
+a=0.802000, b=0.550000, Funkcional=0.232420 
+a=0.802000, b=0.600000, Funkcional=0.247126 
+a=0.802000, b=0.650000, Funkcional=0.271772 
+a=0.802000, b=0.700000, Funkcional=0.305910 
+a=0.802000, b=0.750000, Funkcional=0.348362 
+a=0.802000, b=0.800000, Funkcional=0.397190 
+a=0.802000, b=0.850000, Funkcional=0.450193 
+a=0.802000, b=0.900000, Funkcional=0.505277 
+a=0.802000, b=0.950000, Funkcional=0.560618 
+=========================== 
+a=0.851500, b=0.000000, Funkcional=0.507881 
+a=0.851500, b=0.050000, Funkcional=0.475265 
+a=0.851500, b=0.100000, Funkcional=0.442148 
+a=0.851500, b=0.150000, Funkcional=0.408906 
+a=0.851500, b=0.200000, Funkcional=0.376046 
+a=0.851500, b=0.250000, Funkcional=0.344241 
+a=0.851500, b=0.300000, Funkcional=0.314372 
+a=0.851500, b=0.350000, Funkcional=0.287571 
+a=0.851500, b=0.400000, Funkcional=0.265220 
+a=0.851500, b=0.450000, Funkcional=0.248890 
+a=0.851500, b=0.500000, Funkcional=0.240177 
+a=0.851500, b=0.550000, Funkcional=0.240396 
+a=0.851500, b=0.600000, Funkcional=0.250249 
+a=0.851500, b=0.650000, Funkcional=0.269848 
+a=0.851500, b=0.700000, Funkcional=0.298975 
+a=0.851500, b=0.750000, Funkcional=0.337050 
+a=0.851500, b=0.800000, Funkcional=0.382672 
+a=0.851500, b=0.850000, Funkcional=0.433771 
+a=0.851500, b=0.900000, Funkcional=0.488129 
+a=0.851500, b=0.950000, Funkcional=0.543710 
+=========================== 
+a=0.901000, b=0.000000, Funkcional=0.531161 
+a=0.901000, b=0.050000, Funkcional=0.499011 
+a=0.901000, b=0.100000, Funkcional=0.466233 
+a=0.901000, b=0.150000, Funkcional=0.433156 
+a=0.901000, b=0.200000, Funkcional=0.400231 
+a=0.901000, b=0.250000, Funkcional=0.368061 
+a=0.901000, b=0.300000, Funkcional=0.337442 
+a=0.901000, b=0.350000, Funkcional=0.309404 
+a=0.901000, b=0.400000, Funkcional=0.285226 
+a=0.901000, b=0.450000, Funkcional=0.266402 
+a=0.901000, b=0.500000, Funkcional=0.254507 
+a=0.901000, b=0.550000, Funkcional=0.250957 
+a=0.901000, b=0.600000, Funkcional=0.256653 
+a=0.901000, b=0.650000, Funkcional=0.271852 
+a=0.901000, b=0.700000, Funkcional=0.296432 
+a=0.901000, b=0.750000, Funkcional=0.330086 
+a=0.901000, b=0.800000, Funkcional=0.372043 
+a=0.901000, b=0.850000, Funkcional=0.420641 
+a=0.901000, b=0.900000, Funkcional=0.473694 
+a=0.901000, b=0.950000, Funkcional=0.529007 
+=========================== 
+a=0.950500, b=0.000000, Funkcional=0.552836 
+a=0.950500, b=0.050000, Funkcional=0.521188 
+a=0.950500, b=0.100000, Funkcional=0.488813 
+a=0.950500, b=0.150000, Funkcional=0.456002 
+a=0.950500, b=0.200000, Funkcional=0.423157 
+a=0.950500, b=0.250000, Funkcional=0.390822 
+a=0.950500, b=0.300000, Funkcional=0.359721 
+a=0.950500, b=0.350000, Funkcional=0.330795 
+a=0.950500, b=0.400000, Funkcional=0.305231 
+a=0.950500, b=0.450000, Funkcional=0.284440 
+a=0.950500, b=0.500000, Funkcional=0.269960 
+a=0.950500, b=0.550000, Funkcional=0.263256 
+a=0.950500, b=0.600000, Funkcional=0.265391 
+a=0.950500, b=0.650000, Funkcional=0.276774 
+a=0.950500, b=0.700000, Funkcional=0.297348 
+a=0.950500, b=0.750000, Funkcional=0.326889 
+a=0.950500, b=0.800000, Funkcional=0.365001 
+a=0.950500, b=0.850000, Funkcional=0.410632 
+a=0.950500, b=0.900000, Funkcional=0.461850 
+a=0.950500, b=0.950000, Funkcional=0.516407 
+=========================== 
+Функционал достигает минимума в точке
+        [0.5050000000, 0.3000000000, 0.187174360127205]
+
+> if 0=1:
+> #1
+> 			f[hh] := weight1*(NaSetkePowerNumericSol[1][hh, NTwant]-NaSetkeFractDerivSol[NTwant, hh])^2/max(NaSetkePowerNumericSol[1][hh, NTwant], NaSetkeFractDerivSol[NTwant, hh])^2+
+> 				 weight2*(NaSetkePowerNumericSol[2][hh, NTwant]-(NaSetkeFractDerivSol[NTwant, hh+1]-NaSetkeFractDerivSol[NTwant, hh])/shagX)^2/max(abs(NaSetkePowerNumericSol[2][hh, NTwant]), abs(NaSetkeFractDerivSol[NTwant, hh+1]-NaSetkeFractDerivSol[NTwant, hh])/shagX)^2+
+> 				 weight3*(a2-SetkaA[j]*SetkaX[hh]^SetkaB[j])^2/max(a2, SetkaA[j]*SetkaX[hh]^SetkaB[j])^2:
+> 
+> #2
+> f[Nx+1] := weight1*(NaSetkePowerNumericSol[1][Nx+1, NTwant]-NaSetkeFractDerivSol[NTwant, Nx+1])^2+weight3*(a2-SetkaA[j]*SetkaX[Nx+1]^SetkaB[j])^2:
+> fi:
+> #FunPieceMinusStep:=proc(a2, b2, weight1, weight2, weight3)
+;
+> 
+;
+> #версия с одним графиком
+> #plots[animate]( plot, [[seq([SetkaX[i], subs(t=SetkaT[trunc(j)], x=SetkaX[i], ForHelp[2])], i=1..Nx+1)]], j=1..Nt):
+> MinimumAandB:=[.5050000000, .3000000000]:
+> 
+> NumericSol3 := solverOsred(MinimumAandB[2], MinimumAandB[1], 0, 1, l, L, LeftBound, RightBound, InitialData, SetkaX, SetkaT):
+> j:='j':
+> plots[animate]( plot, [[[seq([SetkaX[i], NumericSol3[1][i, trunc(j)]], i=1..Nx+1)],
+> 			[seq([SetkaX[i], subs(t=SetkaT[trunc(j)], x=SetkaX[i], ForHelp[2])], i=1..Nx+1)]], legend=["Фрактальная модель", "Дробная модель"]], j=1..Nt, thickness = 2, labels=["x","P"], labelfont = ["HELVETICA", 15], axesfont=["HELVETICA",10], legendstyle = [font = ["HELVETICA", 15], location = bottom], trace = 5);
+> plots[animate]( plot, [[[seq([SetkaX[i], MinimumAandB[1]*SetkaX[i]^MinimumAandB[2]*NumericSol3[2][i, trunc(j)]], i=1..Nx+1)],
+> 			[seq([SetkaX[i], a2*(NaSetkeFractDerivSol[trunc(j), i+1]-NaSetkeFractDerivSol[trunc(j), i])/shagX], i=1..Nx+1)]], legend=["Фрактальная модель", "Дробная модель"]], j=1..Nt, thickness = 2, labels=["x","kPx"], labelfont = ["HELVETICA", 15], axesfont=["HELVETICA",10], legendstyle = [font = ["HELVETICA", 15], location = bottom], trace = 5);
+> 
+> plot([MinimumAandB[1]*x^MinimumAandB[2], a2], x=l..L, labels=["x","k"], labelfont = ["HELVETICA", 15], axesfont=["HELVETICA",10], legendstyle = [font = ["HELVETICA", 15], location = bottom], thickness = 2, legend=["Фрактальная модель", "Дробная модель"]);
+> 
+> 
+> #plot([LeftBound, RightBound], t=0..T, labels=["t","p(t, x)"], labelfont = ["HELVETICA", 15],
+> #legend=["Левая граница", "Правая граница"], legendstyle = [font = ["HELVETICA", 15], location = right], thickness = 3, axesfont=["HELVETICA",10]);
+> 
+> 
+
+
+
+
+;
+> NumericSol3;
+           /                                                      
+solverOsred\0.3000000000, 0.5050000000, 0, 1, 0.01, 1, 5.460451711
+
+                                  2                3
+   + 9.678398663 t + 10.92090342 t  + 9.678398663 t 
+
+                  4                5                6
+   + 7.280602283 t  + 4.839199332 t  + 2.912240913 t 
+
+                  7                 8                 9
+   + 1.613066444 t  + 0.8320688319 t  + 0.4032666110 t 
+
+                   10                  11                  12  
+   + 0.1849041849 t   + 0.08065332219 t   + 0.03361894272 t  , 
+
+                                                2
+  0.1055309664 + 0.1870487678 t + 0.2110619328 t 
+
+                   3                 4                  5
+   + 0.1870487678 t  + 0.1407079552 t  + 0.09352438390 t 
+
+                    6                  7                  8
+   + 0.05628318210 t  + 0.03117479464 t  + 0.01608090916 t 
+
+                     9                   10                   11
+   + 0.007793698659 t  + 0.003573535371 t   + 0.001558739732 t  
+
+                      12                                    
+   + 0.0006497337038 t  , -0.005641895835 exp(3.162277659 x)
+
+   + 5.641895835 exp(-3.162277659 x), [0.01, 0.01990000000, 
+
+  0.02980000000, 0.03970000000, 0.04960000000, 0.05950000000, 
+
+  0.06940000000, 0.07930000000, 0.08920000000, 0.09910000000, 
+
+  0.1090000000, 0.1189000000, 0.1288000000, 0.1387000000, 
+
+  0.1486000000, 0.1585000000, 0.1684000000, 0.1783000000, 
+
+  0.1882000000, 0.1981000000, 0.2080000000, 0.2179000000, 
+
+  0.2278000000, 0.2377000000, 0.2476000000, 0.2575000000, 
+
+  0.2674000000, 0.2773000000, 0.2872000000, 0.2971000000, 
+
+  0.3070000000, 0.3169000000, 0.3268000000, 0.3367000000, 
+
+  0.3466000000, 0.3565000000, 0.3664000000, 0.3763000000, 
+
+  0.3862000000, 0.3961000000, 0.4060000000, 0.4159000000, 
+
+  0.4258000000, 0.4357000000, 0.4456000000, 0.4555000000, 
+
+  0.4654000000, 0.4753000000, 0.4852000000, 0.4951000000, 
+
+  0.5050000000, 0.5149000000, 0.5248000000, 0.5347000000, 
+
+  0.5446000000, 0.5545000000, 0.5644000000, 0.5743000000, 
+
+  0.5842000000, 0.5941000000, 0.6040000000, 0.6139000000, 
+
+  0.6238000000, 0.6337000000, 0.6436000000, 0.6535000000, 
+
+  0.6634000000, 0.6733000000, 0.6832000000, 0.6931000000, 
+
+  0.7030000000, 0.7129000000, 0.7228000000, 0.7327000000, 
+
+  0.7426000000, 0.7525000000, 0.7624000000, 0.7723000000, 
+
+  0.7822000000, 0.7921000000, 0.8020000000, 0.8119000000, 
+
+  0.8218000000, 0.8317000000, 0.8416000000, 0.8515000000, 
+
+  0.8614000000, 0.8713000000, 0.8812000000, 0.8911000000, 
+
+  0.9010000000, 0.9109000000, 0.9208000000, 0.9307000000, 
+
+  0.9406000000, 0.9505000000, 0.9604000000, 0.9703000000, 
+
+  0.9802000000, 0.9901000000, 1], [0, 0.1000000000, 0.2000000000, 
+
+  0.3000000000, 0.4000000000, 0.5000000000, 0.6000000000, 
+
+                                              \
+  0.7000000000, 0.8000000000, 0.9000000000, 1]/
+;
+> #Параметр нелокальности и проницаемость
+> a2_show := 10^(-10): #Коэффициент проницаемости
+> b2_show  := 0.2: #Показатель дробной производной
+> #Константы интегрирования
+> c2_show  := 0.000000001: #Константа интегрирования 
+> c_x21_show  := 0.0000001: #Константа интегрирования
+> c_x22_show  := 0.000001: #Константа интегрирования 
+> 
+> 
+> 
+> 
+> 
+> 
+> sol02 := ExactMeshSolution(T, l, L, a2_show, 0.2, c2_show, c_x21_show, c_x22_show, Nx, Nt):
+> NaSetkeFractDerivSol := sol02[1]:
+> PartSolution02 := sol02[2]:
+> 
+> sol05 := ExactMeshSolution(T, l, L, a2_show, 0.5, c2_show, c_x21_show, c_x22_show, Nx, Nt):
+> NaSetkeFractDerivSol := sol05[1]:
+> PartSolution05 := sol05[2]:
+> 
+> sol08 := ExactMeshSolution(T, l, L, a2_show, 0.8, c2_show, c_x21_show, c_x22_show, Nx, Nt):
+> NaSetkeFractDerivSol := sol08[1]:
+> PartSolution08 := sol08[2]:
+> 
+> j:='j':
+> plots[animate]( plot, [[
+> [seq([SetkaX[i], subs(t=SetkaT[trunc(j)], x=SetkaX[i], PartSolution02)], i=1..Nx+1)],
+> [seq([SetkaX[i], subs(t=SetkaT[trunc(j)], x=SetkaX[i], PartSolution05)], i=1..Nx+1)],
+> [seq([SetkaX[i], subs(t=SetkaT[trunc(j)], x=SetkaX[i], PartSolution08)], i=1..Nx+1)]], legend=['ПоказательДП=0.2', 0.5, 0.8]], j=1..Nt);
+Частное точное решение для уравнения с дробными производными (метод разделения переменных)
+         /               /  (1/2)  \          /    (1/2)  \\
+         |               |C2      x|          |  C2      x||
+    p2 = |m2(x) = _C1 exp|---------| + _C2 exp|- ---------||
+         |               |   (1/2) |          |     (1/2) ||
+         \               \ A2      /          \   A2      //
+Усеченный ряд точного решения для уравнения с дробными производными
+   /         k                     \                           
+   |        t                      | /    -7                   
+add|------------------, k = 0 .. 12| \1 10   exp(3.162277660 x)
+   \GAMMA(0.2 k + 0.2)             /                           
+
+                                 \
+   + 0.000001 exp(-3.162277660 x)/
+Частное точное решение для уравнения с дробными производными (метод разделения переменных)
+         /               /  (1/2)  \          /    (1/2)  \\
+         |               |C2      x|          |  C2      x||
+    p2 = |m2(x) = _C1 exp|---------| + _C2 exp|- ---------||
+         |               |   (1/2) |          |     (1/2) ||
+         \               \ A2      /          \   A2      //
+Усеченный ряд точного решения для уравнения с дробными производными
+   /         k                     \                           
+   |        t                      | /    -7                   
+add|------------------, k = 0 .. 12| \1 10   exp(3.162277660 x)
+   \GAMMA(0.5 k + 0.5)             /                           
+
+                                 \
+   + 0.000001 exp(-3.162277660 x)/
+Частное точное решение для уравнения с дробными производными (метод разделения переменных)
+         /               /  (1/2)  \          /    (1/2)  \\
+         |               |C2      x|          |  C2      x||
+    p2 = |m2(x) = _C1 exp|---------| + _C2 exp|- ---------||
+         |               |   (1/2) |          |     (1/2) ||
+         \               \ A2      /          \   A2      //
+Усеченный ряд точного решения для уравнения с дробными производными
+   /         k                     \                           
+   |        t                      | /    -7                   
+add|------------------, k = 0 .. 12| \1 10   exp(3.162277660 x)
+   \GAMMA(0.8 k + 0.8)             /                           
+
+                                 \
+   + 0.000001 exp(-3.162277660 x)/
+
+;
+> j:='j':
+> h:=SetkaX[2]-SetkaX[1]:
+> plots[animate]( plot, [[
+> [seq([SetkaX[i], (subs(t=SetkaT[trunc(j)], x=SetkaX[i+1], PartSolution02)
+> +2*subs(t=SetkaT[trunc(j)], x=SetkaX[i], PartSolution02)
+> -subs(t=SetkaT[trunc(j)], x=SetkaX[i-1], PartSolution02))/h^2], i=2..Nx)],
+> [seq([SetkaX[i], (subs(t=SetkaT[trunc(j)], x=SetkaX[i+1], PartSolution05)
+> +2*subs(t=SetkaT[trunc(j)], x=SetkaX[i], PartSolution05)
+> -subs(t=SetkaT[trunc(j)], x=SetkaX[i-1], PartSolution05))/h^2], i=2..Nx)],
+> [seq([SetkaX[i], (subs(t=SetkaT[trunc(j)], x=SetkaX[i+1], PartSolution08)
+> +2*subs(t=SetkaT[trunc(j)], x=SetkaX[i], PartSolution08)
+> -subs(t=SetkaT[trunc(j)], x=SetkaX[i-1], PartSolution08))/h^2], i=2..Nx)]]], j=1..Nt);
+> 
+
+
+;
+> 
+> fff:=aa*x^bb-(kk/GAMMA(alpha)+kk*(1-alpha)/GAMMA(alpha)*x)
+> 
+> for j from 1 to Na do
+> 	for k from 1 to Nb do	
+> 		FunRaznica[j, k] := subs(aa, fff):
+> 		printf("a=%f, b=%f, Funkcional=%f \n", SetkaA[j], SetkaB[k], FunRaznica[j, k]);
+> 	od:
+> 	printf("=========================== \n");
+> od:
+Error, `)` unexpected
+;
+> 
+;
